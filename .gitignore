@@ -8,3 +8,6 @@ wheels/
 
 # venv
 .venv
+.env
+repomix-output.xml
+chat_logs/
