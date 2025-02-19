@@ -5,7 +5,9 @@ set -x
 rye sync
 rye run black loop.py
 rye run mypy --strict loop.py
-rye run python loop.py || true
 git status
 git --no-pager diff
+git --no-pager diff --cached
+git --no-pager whatchanged
 repomix
+rye run python loop.py
