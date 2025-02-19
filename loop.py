@@ -119,7 +119,7 @@ import requests
 
 
 @typechecked
-def query_gpt4o(  # type: ignore[return]
+def query_ai_model(  # type: ignore[return]
     messages: list[dict[str, str]],
     iteration: int,
     model: str = DEFAULT_MODEL,
@@ -232,7 +232,7 @@ def main() -> None:
                     {"role": "user", "content": initial_prompt}
                 )
 
-            response = query_gpt4o(chat_session.messages, iteration)
+            response = query_ai_model(chat_session.messages, iteration)
             print("\nOpening editor for your response...")
 
             user_input = get_user_input(response, chat_session)
