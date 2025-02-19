@@ -1,20 +1,21 @@
-import requests
 import json
-import time
 import os
+import random
 import re
-from datetime import datetime
-from pathlib import Path
+import shutil
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ET
-import shutil
-from typing import Optional, Dict, List
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
 
-from icecream import ic  # type: ignore[import-untyped]
-from typeguard import typechecked, check_type
+import requests
 from environs import env
+from icecream import ic  # type: ignore[import-untyped]
 from markdown_it import MarkdownIt
+from typeguard import check_type, typechecked
 
 env.read_env()
 
@@ -31,6 +32,7 @@ def strip_trailing_whitespace(text: str) -> str:
     return "\n".join(line.rstrip() for line in text.splitlines())
 
 
+@typechecked
 def extract_xml_from_markdown(markdown_content: str) -> Optional[str]:
     xml_match = re.search(r"```xml\n(.*?)\n```", markdown_content, re.DOTALL)
     if xml_match:
@@ -110,9 +112,18 @@ class ChatSession:
         shutil.move(temp_md, self.filepath)
 
 
+import random
+import time
+
+import requests
+
+
 @typechecked
-def query_gpt4o(
-    messages: List[Dict[str, str]], iteration: int, model: str = DEFAULT_MODEL
+def query_gpt4o(  # type: ignore[return]
+    messages: list[dict[str, str]],
+    iteration: int,
+    model: str = DEFAULT_MODEL,
+    max_retries: int = 5,
 ) -> str:
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -124,13 +135,27 @@ def query_gpt4o(
         "max_tokens": 1024,
         "temperature": 0.7,
     }
-    print("\n--- API Request Payload ---\n", json.dumps(payload, indent=2))
-    response = requests.post(MODEL_ENDPOINT, headers=headers, json=payload)
-    print("\n--- API Response ---\n", response.status_code, response.text)
-    response.raise_for_status()
-    response_text = check_type(response.json()["choices"][0]["message"]["content"], str)
-    cleaned_response = strip_trailing_whitespace(response_text)
-    return cleaned_response.replace("(Iteration N)", f"(Iteration {iteration})")
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                MODEL_ENDPOINT, headers=headers, json=payload, timeout=10
+            )
+            response.raise_for_status()
+            response_text = response.json()["choices"][0]["message"]["content"]
+            return strip_trailing_whitespace(
+                response_text.replace("(Iteration N)", f"(Iteration {iteration})")
+            )
+
+        except requests.exceptions.RequestException as e:
+            print(f"API Error: {e} (Attempt {attempt+1}/{max_retries})")
+            if attempt < max_retries - 1:
+                sleep_time = 2**attempt + random.uniform(0, 0.5)
+                print(f"Retrying in {sleep_time:.2f} seconds...")
+                time.sleep(sleep_time)
+            else:
+                print("Max retries reached. Returning fallback response.")
+                return "(ERROR) API failed, reverting to previous iteration."
 
 
 @typechecked
@@ -162,6 +187,7 @@ def get_user_input(ai_response: str, chat_session: ChatSession) -> str:
     return strip_trailing_whitespace(content)
 
 
+@typechecked
 def main() -> None:
     CHAT_LOGS_DIR.mkdir(exist_ok=True)
     existing_chats = sorted(

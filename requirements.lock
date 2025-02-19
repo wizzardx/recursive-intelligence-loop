@@ -47,6 +47,8 @@ idna==3.10
     # via anyio
     # via httpx
     # via requests
+isort==6.0.0
+    # via recursive-intelligence-loop
 jiter==0.8.2
     # via openai
 markdown-it-py==3.0.0
